@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Group9.QRevealProximity.Locations;
+using Microsoft.EntityFrameworkCore;
 using Volo.Abp.AuditLogging.EntityFrameworkCore;
 using Volo.Abp.BackgroundJobs.EntityFrameworkCore;
 using Volo.Abp.Data;
@@ -53,6 +54,8 @@ public class QRevealProximityDbContext :
 
     #endregion
 
+    public DbSet<Location> Locations { get; set; }
+
     public QRevealProximityDbContext(DbContextOptions<QRevealProximityDbContext> options)
         : base(options)
     {
@@ -74,13 +77,13 @@ public class QRevealProximityDbContext :
         builder.ConfigureFeatureManagement();
         builder.ConfigureTenantManagement();
 
-        /* Configure your own tables/entities inside here */
-
-        //builder.Entity<YourEntity>(b =>
-        //{
-        //    b.ToTable(QRevealProximityConsts.DbTablePrefix + "YourEntities", QRevealProximityConsts.DbSchema);
-        //    b.ConfigureByConvention(); //auto configure for the base class props
-        //    //...
-        //});
+        builder.Entity<Location>(l =>
+        {
+            l.ToTable("Locations");
+            l.Property(x => x.Name).HasMaxLength(LocationConsts.NameLength).IsRequired();
+            l.Property(x => x.Address).IsRequired();
+            l.Property(x => x.Longitude).IsRequired();
+            l.Property(x => x.Latitude).IsRequired();
+        });
     }
 }
