@@ -1,4 +1,4 @@
-using System.IO;
+    using System.IO;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Extensions.DependencyInjection;
 using Microsoft.AspNetCore.Hosting;
@@ -37,6 +37,9 @@ using Volo.Abp.UI.Navigation.Urls;
 using Volo.Abp.UI;
 using Volo.Abp.UI.Navigation;
 using Volo.Abp.VirtualFileSystem;
+using Polly;
+using System.Collections.Generic;
+using Autofac.Core;
 
 namespace Group9.QRevealProximity.Web;
 
@@ -78,12 +81,23 @@ public class QRevealProximityWebModule : AbpModule
                 options.UseAspNetCore();
             });
         });
+
+#if DEBUG
+        PreConfigure<OpenIddictServerBuilder>(options =>
+        {
+            options.UseAspNetCore()
+                .DisableTransportSecurityRequirement();
+        });
+#endif
+
     }
+
 
     public override void ConfigureServices(ServiceConfigurationContext context)
     {
         var hostingEnvironment = context.Services.GetHostingEnvironment();
         var configuration = context.Services.GetConfiguration();
+
 
         ConfigureAuthentication(context);
         ConfigureUrls(configuration);
@@ -92,7 +106,7 @@ public class QRevealProximityWebModule : AbpModule
         ConfigureVirtualFileSystem(hostingEnvironment);
         ConfigureNavigationServices();
         ConfigureAutoApiControllers();
-        ConfigureSwaggerServices(context.Services);
+        ConfigureSwaggerServices(context.Services, configuration);
     }
 
     private void ConfigureAuthentication(ServiceConfigurationContext context)
@@ -161,16 +175,20 @@ public class QRevealProximityWebModule : AbpModule
         });
     }
 
-    private void ConfigureSwaggerServices(IServiceCollection services)
+    private void ConfigureSwaggerServices(IServiceCollection services, IConfiguration configuration)
     {
-        services.AddAbpSwaggerGen(
+        services.AddAbpSwaggerGenWithOAuth(
+            configuration["AuthServer:Authority"]!,
+            new Dictionary<string, string>
+            {
+                    {"QRevealProximity", "QRevealProximity API"}
+            },
             options =>
             {
-                options.SwaggerDoc("v1", new OpenApiInfo { Title = "QRevealProximity API", Version = "v1" });
+                options.SwaggerDoc("v1", new OpenApiInfo { Title = "QReveal Proximity API", Version = "v1" });
                 options.DocInclusionPredicate((docName, description) => true);
                 options.CustomSchemaIds(type => type.FullName);
-            }
-        );
+            });
     }
 
     public override void OnApplicationInitialization(ApplicationInitializationContext context)
@@ -207,6 +225,9 @@ public class QRevealProximityWebModule : AbpModule
         app.UseAbpSwaggerUI(options =>
         {
             options.SwaggerEndpoint("/swagger/v1/swagger.json", "QRevealProximity API");
+            var configuration = context.ServiceProvider.GetRequiredService<IConfiguration>();
+            options.OAuthClientId(configuration["AuthServer:SwaggerClientId"]);
+            options.OAuthScopes("QRevealProximity");
         });
         app.UseAuditing();
         app.UseAbpSerilogEnrichers();

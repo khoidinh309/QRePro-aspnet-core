@@ -25,6 +25,8 @@ namespace Group9.QRevealProximity.Data
             {
                 Name = "h6-hcmut",
                 Address = "VRJ4+65C, Đông Hoà, Dĩ An, Bình Dương",
+                Description = "Là tòa nhà rất đẹp",
+                ImageFileName = "h6_hcmut.jpg",
                 Longitude = 10.87944,
                 Latitude = 106.8063
             };
@@ -33,22 +35,28 @@ namespace Group9.QRevealProximity.Data
             {
                 Name = "h1-hcmut",
                 Address = "VRJ4+65C, Đông Hoà, Dĩ An, Bình Dương",
+                Description = "Là tòa nhà rất đẹp",
+                ImageFileName = "h1_hcmut.jpg",
                 Longitude = 10.880121,
                 Latitude = 106.804700
             };
 
             var h2_location = new Location
             {
-                Name = "h1-hcmut",
+                Name = "h2-hcmut",
                 Address = "VRJ4+65C, Đông Hoà, Dĩ An, Bình Dương",
+                Description = "Là tòa nhà rất đẹp",
+                ImageFileName = "h2_hcmut.jpg",
                 Longitude = 10.880561,
                 Latitude = 106.805094
             };
 
             var h3_location = new Location
             {
-                Name = "h1-hcmut",
+                Name = "h3-hcmut",
                 Address = "VRJ4+65C, Đông Hoà, Dĩ An, Bình Dương",
+                Description = "Là tòa nhà rất đẹp",
+                ImageFileName = "h3_hcmut.jpg",
                 Longitude = 10.881086,
                 Latitude = 106.805349
             };

@@ -1,4 +1,5 @@
 ﻿using Group9.QRevealProximity.Locations;
+using Group9.QRevealProximity.ScanHistory;
 using Microsoft.EntityFrameworkCore;
 using Volo.Abp.AuditLogging.EntityFrameworkCore;
 using Volo.Abp.BackgroundJobs.EntityFrameworkCore;
@@ -55,6 +56,7 @@ public class QRevealProximityDbContext :
     #endregion
 
     public DbSet<Location> Locations { get; set; }
+    public DbSet<Scannable> Scannables { get; set; }
 
     public QRevealProximityDbContext(DbContextOptions<QRevealProximityDbContext> options)
         : base(options)
@@ -82,8 +84,16 @@ public class QRevealProximityDbContext :
             l.ToTable("Locations");
             l.Property(x => x.Name).HasMaxLength(LocationConsts.NameLength).IsRequired();
             l.Property(x => x.Address).IsRequired();
+            l.Property(x => x.Description)
+                .HasMaxLength(LocationConsts.MaxDescriptionLength)
+                .IsRequired();
             l.Property(x => x.Longitude).IsRequired();
             l.Property(x => x.Latitude).IsRequired();
+        });
+
+        builder.Entity<Scannable>(s =>
+        {
+            s.ToTable("Scannales");
         });
     }
 }
