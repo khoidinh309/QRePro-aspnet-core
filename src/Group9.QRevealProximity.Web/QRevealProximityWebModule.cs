@@ -1,4 +1,4 @@
-using System.IO;
+    using System.IO;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Extensions.DependencyInjection;
 using Microsoft.AspNetCore.Hosting;
@@ -37,6 +37,14 @@ using Volo.Abp.UI.Navigation.Urls;
 using Volo.Abp.UI;
 using Volo.Abp.UI.Navigation;
 using Volo.Abp.VirtualFileSystem;
+using Polly;
+using System.Collections.Generic;
+using Autofac.Core;
+using Volo.Abp.OpenIddict;
+using System.Security.Cryptography.X509Certificates;
+using Microsoft.Extensions.Hosting.Internal;
+using System;
+using System.Security.Cryptography;
 
 namespace Group9.QRevealProximity.Web;
 
@@ -78,12 +86,96 @@ public class QRevealProximityWebModule : AbpModule
                 options.UseAspNetCore();
             });
         });
+
+        var hostingEnvironment = context.Services.GetHostingEnvironment();
+
+        if (!hostingEnvironment.IsDevelopment())
+        {
+            PreConfigure<AbpOpenIddictAspNetCoreOptions>(options =>
+            {
+                options.AddDevelopmentEncryptionAndSigningCertificate = false;
+            });
+
+            PreConfigure<OpenIddictServerBuilder>(builder =>
+            {
+                // In production, it is recommended to use two RSA certificates, 
+                // one for encryption, one for signing.
+                builder.AddEncryptionCertificate(
+                        GetEncryptionCertificate(hostingEnvironment, context.Services.GetConfiguration()));
+                builder.AddSigningCertificate(
+                        GetSigningCertificate(hostingEnvironment, context.Services.GetConfiguration()));
+            });
+        }
+
     }
+
+    private X509Certificate2 GetSigningCertificate(IWebHostEnvironment hostingEnv,
+                            IConfiguration configuration)
+    {
+        var fileName = $"cert-signing.pfx";
+        var passPhrase = configuration["MyAppCertificate:X590:PassPhrase"];
+        var file = Path.Combine(hostingEnv.ContentRootPath, fileName);
+        if (File.Exists(file))
+        {
+            var created = File.GetCreationTime(file);
+            var days = (DateTime.Now - created).TotalDays;
+            if (days > 180)
+                File.Delete(file);
+            else
+                return new X509Certificate2(file, passPhrase,
+                             X509KeyStorageFlags.MachineKeySet);
+        }
+
+        // file doesn't exist or was deleted because it expired
+        using var algorithm = RSA.Create(keySizeInBits: 2048);
+        var subject = new X500DistinguishedName("CN=Fabrikam Signing Certificate");
+        var request = new CertificateRequest(subject, algorithm,
+                            HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+        request.CertificateExtensions.Add(new X509KeyUsageExtension(
+                            X509KeyUsageFlags.DigitalSignature, critical: true));
+        var certificate = request.CreateSelfSigned(DateTimeOffset.UtcNow,
+                            DateTimeOffset.UtcNow.AddYears(2));
+        File.WriteAllBytes(file, certificate.Export(X509ContentType.Pfx, string.Empty));
+        return new X509Certificate2(file, passPhrase,
+                            X509KeyStorageFlags.MachineKeySet);
+    }
+
+    private X509Certificate2 GetEncryptionCertificate(IWebHostEnvironment hostingEnv,
+                                 IConfiguration configuration)
+    {
+        var fileName = $"cert-encryption.pfx";
+        var passPhrase = configuration["MyAppCertificate:X590:PassPhrase"];
+        var file = Path.Combine(hostingEnv.ContentRootPath, fileName);
+        if (File.Exists(file))
+        {
+            var created = File.GetCreationTime(file);
+            var days = (DateTime.Now - created).TotalDays;
+            if (days > 180)
+                File.Delete(file);
+            else
+                return new X509Certificate2(file, passPhrase,
+                                X509KeyStorageFlags.MachineKeySet);
+        }
+
+        // file doesn't exist or was deleted because it expired
+        using var algorithm = RSA.Create(keySizeInBits: 2048);
+        var subject = new X500DistinguishedName("CN=Fabrikam Encryption Certificate");
+        var request = new CertificateRequest(subject, algorithm,
+                            HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+        request.CertificateExtensions.Add(new X509KeyUsageExtension(
+                            X509KeyUsageFlags.KeyEncipherment, critical: true));
+        var certificate = request.CreateSelfSigned(DateTimeOffset.UtcNow,
+                            DateTimeOffset.UtcNow.AddYears(2));
+        File.WriteAllBytes(file, certificate.Export(X509ContentType.Pfx, string.Empty));
+        return new X509Certificate2(file, passPhrase, X509KeyStorageFlags.MachineKeySet);
+    }
+
 
     public override void ConfigureServices(ServiceConfigurationContext context)
     {
         var hostingEnvironment = context.Services.GetHostingEnvironment();
         var configuration = context.Services.GetConfiguration();
+
 
         ConfigureAuthentication(context);
         ConfigureUrls(configuration);
@@ -92,7 +184,7 @@ public class QRevealProximityWebModule : AbpModule
         ConfigureVirtualFileSystem(hostingEnvironment);
         ConfigureNavigationServices();
         ConfigureAutoApiControllers();
-        ConfigureSwaggerServices(context.Services);
+        ConfigureSwaggerServices(context.Services, configuration);
     }
 
     private void ConfigureAuthentication(ServiceConfigurationContext context)
@@ -161,16 +253,20 @@ public class QRevealProximityWebModule : AbpModule
         });
     }
 
-    private void ConfigureSwaggerServices(IServiceCollection services)
+    private void ConfigureSwaggerServices(IServiceCollection services, IConfiguration configuration)
     {
-        services.AddAbpSwaggerGen(
+        services.AddAbpSwaggerGenWithOAuth(
+            configuration["AuthServer:Authority"]!,
+            new Dictionary<string, string>
+            {
+                    {"QRevealProximity", "QRevealProximity API"}
+            },
             options =>
             {
-                options.SwaggerDoc("v1", new OpenApiInfo { Title = "QRevealProximity API", Version = "v1" });
+                options.SwaggerDoc("v1", new OpenApiInfo { Title = "QReveal Proximity API", Version = "v1" });
                 options.DocInclusionPredicate((docName, description) => true);
                 options.CustomSchemaIds(type => type.FullName);
-            }
-        );
+            });
     }
 
     public override void OnApplicationInitialization(ApplicationInitializationContext context)
@@ -207,6 +303,9 @@ public class QRevealProximityWebModule : AbpModule
         app.UseAbpSwaggerUI(options =>
         {
             options.SwaggerEndpoint("/swagger/v1/swagger.json", "QRevealProximity API");
+            var configuration = context.ServiceProvider.GetRequiredService<IConfiguration>();
+            options.OAuthClientId(configuration["AuthServer:SwaggerClientId"]);
+            options.OAuthScopes("QRevealProximity");
         });
         app.UseAuditing();
         app.UseAbpSerilogEnrichers();
