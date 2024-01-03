@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Group9.QRevealProximity.ScanHistory;
 using Microsoft.AspNetCore.Authorization;
@@ -91,6 +93,53 @@ public class LocationServices : QRevealProximityAppService, ILocationServices
         }
 
         await this._locationRepository.DeleteAsync(id);
+
+        return true;
+    }
+
+    public async Task<List<ScannedLocationDto>> GetScannedLocation()
+    {
+        var userId = (Guid)(CurrentUser?.Id);
+
+        if(userId == null)
+        {
+            throw new UserFriendlyException("Error");
+        }
+
+        var scannedLocation = await _scannableRepository.GetListAsync((s) => (s.UserId == userId));
+
+        var scannedLocationDto = new List<ScannedLocationDto>();
+
+        for(var i = 0; i < scannedLocation.Count();i++)
+        {
+            var locationName = await _locationRepository.GetAsync(scannedLocation[i].LocationId);
+            scannedLocationDto.Add(new ScannedLocationDto
+            {
+                UserId = scannedLocation[i].UserId,
+                LocationId = scannedLocation[i].LocationId,
+                LocationName = locationName.Name,
+                CreationTime = scannedLocation[i].CreationTime,
+                Id = scannedLocation[i].Id,
+            });
+        }
+
+        return scannedLocationDto;
+    }
+
+    private async Task<string> GetNameOfLocation(Guid id)
+    {
+        var location = await _locationRepository.GetAsync(id);
+        return location.Name;
+    }
+
+    public async Task<bool> DeleteScanable(Guid id)
+    {
+        if(id == Guid.Empty)
+        {
+            return false;
+        }
+
+        await _scannableRepository.DeleteAsync(id);
 
         return true;
     }

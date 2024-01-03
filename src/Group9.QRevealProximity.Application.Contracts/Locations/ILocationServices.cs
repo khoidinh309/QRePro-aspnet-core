@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Volo.Abp.Application.Services;
 
@@ -10,4 +11,6 @@ public interface ILocationServices : IApplicationService
     public Task<LocationDto> GetLocationInfo(SearchLocationDto location);
     public Task<LocationDto> UpdateAsync(UpdateLocationDto location);
     public Task<bool> DeleteAsync(Guid id);
+    public Task<List<ScannedLocationDto>> GetScannedLocation();
+    public Task<bool> DeleteScanable(Guid id);
 }
